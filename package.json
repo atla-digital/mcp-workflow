@@ -1,0 +1,33 @@
+{
+  "name": "mcp-workflow",
+  "version": "0.1.0",
+  "description": "A workflow MCP server that provides workflow navigation through markdown-based workflow definitions with branching logic and loops.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "mcp-workflow": "./build/index.js"
+  },
+  "files": [
+    "build"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"import('fs').then(fs => fs.chmodSync('build/index.js', '755'))\"",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "start": "node build/server/streamable-http-server.js",
+    "start:mcp": "node build/index.js",
+    "start:http": "node build/server/streamable-http-server.js",
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "inspector:http": "npx @modelcontextprotocol/inspector streamableHttp \"http://localhost:3000/mcp\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "marked": "^12.0.0",
+    "gray-matter": "^4.0.3",
+    "chokidar": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "typescript": "^5.3.3"
+  }
+}

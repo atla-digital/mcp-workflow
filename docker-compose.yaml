@@ -1,0 +1,77 @@
+services:
+  # Streamable HTTP Server mode (default - multi-client support)
+  mcp-workflow-http:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcp-workflow-http-server
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - WORKFLOWS_PATH=/app/workflows
+    ports:
+      - "3002:3000"
+    restart: unless-stopped
+    volumes:
+      - ./workflows:/app/workflows:rw
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    # Health check
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/mcp", "||", "exit", "1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # # MCP Server mode (for traditional MCP usage)
+  # mcp-workflow-mcp:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: mcp-workflow-mcp-server
+  #   environment:
+  #     - NODE_ENV=production
+  #     - WORKFLOWS_PATH=/app/workflows
+  #   volumes:
+  #     - ./workflows:/app/workflows:rw
+  #   command: [ "node", "build/index.js" ]
+  #   profiles:
+  #     - mcp
+  #   # Resource limits
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 256M
+  #         cpus: '0.5'
+  #       reservations:
+  #         memory: 128M
+  #         cpus: '0.25'
+  #   # Health check
+  #   healthcheck:
+  #     test: [ "CMD", "node", "-e", "process.exit(0)" ]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
+  # Optional: Add nginx reverse proxy for production
+  # nginx:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - mcp-gitlab-http
+  #   restart: unless-stopped
+  #   profiles:
+  #     - production
