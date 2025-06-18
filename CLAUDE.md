@@ -40,6 +40,15 @@ npm run inspector
 npm run inspector:http
 ```
 
+### CI/CD & Documentation
+```bash
+# Install git hooks for automatic documentation generation
+npm run install-hooks
+
+# Generate tool documentation manually
+npm run generate-docs
+```
+
 ## Architecture Overview
 
 This is a **Model Context Protocol (MCP) server** that provides workflow navigation through markdown-based workflow definitions. The system has two main operational modes and supports both tools and prompts.
@@ -136,5 +145,57 @@ When adding new tools:
 
 The workflow engine automatically handles prompt generation - no manual prompt registration needed for new entrypoints.
 
+## CI/CD Pipeline
+
+### GitHub Actions Workflows
+
+The project includes automated CI/CD pipelines using GitHub Actions:
+
+#### Docker Build & Publish (`.github/workflows/docker-publish.yml`)
+- **Triggers**: Push to `main` branch, release publication
+- **Features**:
+  - Multi-platform builds (linux/amd64, linux/arm64)
+  - Publishes to GitHub Container Registry (ghcr.io)
+  - Build caching for performance
+  - Artifact attestations for security
+  - Automatic tagging (branch, PR, semver, latest)
+
+#### CI Pipeline (`.github/workflows/ci.yml`)
+- **Triggers**: Push to `main`/`develop`, pull requests
+- **Features**:
+  - Multi-version Node.js testing (20, 22)
+  - TypeScript compilation and type checking
+  - Build validation
+  - HTTP server startup testing
+  - Docker container testing
+  - Workflow directory validation
+
+### Git Hooks & Documentation
+
+#### Pre-commit Hook (`git-hooks/pre-commit`)
+- Automatically regenerates `TOOLS.md` when tool definitions change
+- Monitors changes to `src/tools/definitions/` and `src/utils/tool-registry.ts`
+- Runs build process to ensure latest compiled definitions
+- Adds updated documentation to the commit
+
+#### Documentation Generation (`scripts/generate-tools-md.js`)
+- Generates comprehensive tool documentation from TypeScript definitions
+- Categorizes tools by function (Navigation, Management, Analysis)
+- Creates formatted markdown with parameter tables and examples
+- Maintains table of contents with GitHub-compatible anchors
+
+### Setup Commands
+```bash
+# Install git hooks for automatic documentation
+npm run install-hooks
+
+# Generate documentation manually
+npm run generate-docs
+
+# Complete build and documentation workflow
+npm run build && npm run generate-docs
+```
+
 ### Memories
 - Build and deploy using docker compose
+- Use GitHub Actions for CI/CD automation
