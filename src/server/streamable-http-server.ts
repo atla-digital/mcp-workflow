@@ -14,6 +14,8 @@ import { toolRegistry } from "../utils/tool-registry.js";
 import { allTools } from "../tools/definitions/index.js";
 import { promptDefinitions, promptTemplates } from "../utils/prompts-data.js";
 import { WorkflowEngine } from "../services/workflow-engine.js";
+import { StaticFileHandler } from "./static-handler.js";
+import { NotificationService } from "../services/notification-service.js";
 
 class WorkflowStreamableHttpServer {
   private server: Server;
@@ -21,12 +23,16 @@ class WorkflowStreamableHttpServer {
   private httpServer?: any;
   private port: number;
   private workflowEngine: WorkflowEngine;
+  private staticHandler: StaticFileHandler;
 
   constructor(port: number = 3000) {
     this.port = port;
     
     // Initialize workflow engine
     this.workflowEngine = new WorkflowEngine();
+    
+    // Initialize static file handler
+    this.staticHandler = new StaticFileHandler();
     
     // Create server instance
     this.server = new Server(
@@ -40,6 +46,7 @@ class WorkflowStreamableHttpServer {
           canCallTools: true,
           canListPrompts: true,
           canGetPrompts: true,
+          logging: {},
           tools: { listChanged: false },
           prompts: { listChanged: false }
         }
@@ -49,10 +56,11 @@ class WorkflowStreamableHttpServer {
     // Create transport instance with stateless mode
     this.transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined, // Stateless
-      enableJsonResponse: false
+      enableJsonResponse: true // Enable JSON responses for web client compatibility
     });
 
     this.setupMCPHandlers();
+    this.setupNotifications();
   }
 
   /**
@@ -130,6 +138,22 @@ class WorkflowStreamableHttpServer {
   }
 
   /**
+   * Setup notification service
+   */
+  private setupNotifications(): void {
+    const notificationService = NotificationService.getInstance();
+    
+    // Set up notification sender that uses the MCP server
+    notificationService.setNotificationSender(async (notification) => {
+      try {
+        await this.server.notification(notification);
+      } catch (error) {
+        console.error('Failed to send MCP notification:', error);
+      }
+    });
+  }
+
+  /**
    * Initialize prompts by loading workflows
    */
   private async initializePrompts(): Promise<void> {
@@ -174,6 +198,23 @@ class WorkflowStreamableHttpServer {
         return;
       }
 
+      // Handle static files (web UI)
+      if (StaticFileHandler.shouldHandle(req.url || '')) {
+        this.staticHandler.handleRequest(req, res).then(handled => {
+          if (!handled) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('File not found');
+          }
+        }).catch(error => {
+          console.error('Static file handler error:', error);
+          if (!res.headersSent) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            res.end('Internal Server Error');
+          }
+        });
+        return;
+      }
+
       // 404 for other paths
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Not Found' }));
@@ -181,7 +222,10 @@ class WorkflowStreamableHttpServer {
 
     return new Promise((resolve, reject) => {
       this.httpServer!.listen(this.port, () => {
-        console.log(`Workflow MCP Server running on http://localhost:${this.port}/mcp`);
+        console.log(`🚀 Workflow MCP Server running on http://localhost:${this.port}`);
+        console.log(`📊 Web UI available at: http://localhost:${this.port}/`);
+        console.log(`🔗 MCP endpoint at: http://localhost:${this.port}/mcp`);
+        console.log(`❤️  Health check at: http://localhost:${this.port}/health`);
         resolve();
       });
 

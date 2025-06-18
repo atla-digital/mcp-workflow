@@ -16,4 +16,3 @@ Build your Node.js project using npm.
 
 - If build successful → Continue to @run-tests@
 - If build failed → Continue to @fix-build-errors@
-- If no test script → Continue to @commit-and-push@

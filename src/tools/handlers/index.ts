@@ -1,4 +1,4 @@
-import { listEntrypoints, getStep, createOrUpdateWorkflow, deleteWorkflow, findOrphans, findInvalidLinks } from './workflow.js';
+import { listEntrypoints, getStep, createOrUpdateWorkflow, deleteWorkflow, findOrphans, findInvalidLinks, getWorkflowRawContent } from './workflow.js';
 
 export const workflowHandlers = {
   listEntrypoints,
@@ -6,5 +6,6 @@ export const workflowHandlers = {
   createOrUpdateWorkflow,
   deleteWorkflow,
   findOrphans,
-  findInvalidLinks
+  findInvalidLinks,
+  getWorkflowRawContent
 };

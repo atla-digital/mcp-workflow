@@ -17,5 +17,6 @@ export const toolRegistry: ToolRegistry = {
   workflow_create_or_update: workflowHandlers.createOrUpdateWorkflow,
   workflow_delete: workflowHandlers.deleteWorkflow,
   workflow_find_orphans: workflowHandlers.findOrphans,
-  workflow_find_invalid_links: workflowHandlers.findInvalidLinks
+  workflow_find_invalid_links: workflowHandlers.findInvalidLinks,
+  workflow_get_raw_content: workflowHandlers.getWorkflowRawContent
 }; 

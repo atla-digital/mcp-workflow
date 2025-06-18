@@ -111,3 +111,23 @@ export const findInvalidLinks: ToolHandler = async (params: CallToolRequest['par
     ]
   };
 };
+
+export const getWorkflowRawContent: ToolHandler = async (params: CallToolRequest['params']) => {
+  const { filename } = (params.arguments as any) || {};
+  
+  if (!filename) {
+    throw new Error('filename parameter is required');
+  }
+  
+  const workflowEngine = new WorkflowEngine();
+  const content = await workflowEngine.getRawFileContent(filename as string);
+  
+  return {
+    content: [
+      {
+        type: 'text',
+        text: content
+      }
+    ]
+  };
+};

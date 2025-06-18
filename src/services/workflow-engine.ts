@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import matter from 'gray-matter';
 import chokidar from 'chokidar';
 import { promptDefinitions, promptTemplates } from '../utils/prompts-data.js';
+import { NotificationService } from './notification-service.js';
 
 interface WorkflowStep {
   id: string;
@@ -48,10 +49,20 @@ export class WorkflowEngine {
   private stepCache: Map<string, WorkflowStep> = new Map();
   private entrypointsCache: WorkflowEntrypoint[] = [];
   private watcher?: chokidar.FSWatcher;
+  private notificationService: NotificationService;
+  private isInitializing = true;
+  private initializationTimeout?: NodeJS.Timeout;
 
   constructor(workflowsPath: string = process.env.WORKFLOWS_PATH || '/app/workflows') {
     this.workflowsPath = workflowsPath;
+    this.notificationService = NotificationService.getInstance();
     this.initializeWatcher();
+    
+    // Stop initialization mode after initial file scan completes
+    this.initializationTimeout = setTimeout(() => {
+      this.isInitializing = false;
+      console.log('WorkflowEngine initialization complete, notifications enabled');
+    }, 2000); // 2 second delay to allow initial file scan
   }
 
   private initializeWatcher() {
@@ -60,9 +71,41 @@ export class WorkflowEngine {
       persistent: true
     });
 
-    this.watcher.on('change', () => this.refreshCache());
-    this.watcher.on('add', () => this.refreshCache());
-    this.watcher.on('unlink', () => this.refreshCache());
+    this.watcher.on('change', (filePath) => this.handleFileChange('changed', filePath));
+    this.watcher.on('add', (filePath) => this.handleFileChange('added', filePath));
+    this.watcher.on('unlink', (filePath) => this.handleFileChange('removed', filePath));
+  }
+
+  /**
+   * Handle file watcher events
+   */
+  private async handleFileChange(event: string, filePath: string): Promise<void> {
+    const filename = path.basename(filePath);
+    
+    // Refresh cache first
+    await this.refreshCache();
+    
+    // Skip notifications during initial loading to prevent spam
+    if (this.isInitializing) {
+      return;
+    }
+    
+    // Send file watcher notification (only after initialization)
+    await this.notificationService.notifyFileWatcherEvent(event, filename);
+    
+    // Determine workflow ID from filename
+    const workflowId = filename.replace(/\.md$/, '');
+    
+    // Send appropriate notifications
+    if (event === 'added') {
+      await this.notificationService.notifyWorkflowUpdated(workflowId, 'created');
+      await this.notificationService.notifyWorkflowListChanged();
+    } else if (event === 'changed') {
+      await this.notificationService.notifyWorkflowUpdated(workflowId, 'updated');
+    } else if (event === 'removed') {
+      await this.notificationService.notifyWorkflowUpdated(workflowId, 'deleted');
+      await this.notificationService.notifyWorkflowListChanged();
+    }
   }
 
   private async refreshCache() {
@@ -264,6 +307,21 @@ This workflow step has no next steps defined. This may be a terminal step in the
     return this.stepCache.get(stepId) || null;
   }
 
+  async getRawFileContent(filename: string): Promise<string> {
+    try {
+      // Ensure filename has .md extension
+      if (!filename.endsWith('.md')) {
+        filename += '.md';
+      }
+      
+      const filePath = path.join(this.workflowsPath, filename);
+      const content = await fs.readFile(filePath, 'utf-8');
+      return content;
+    } catch (error) {
+      throw new Error(`Failed to read workflow file ${filename}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   async createOrUpdateWorkflow(request: CreateWorkflowRequest): Promise<{ success: boolean; message: string; stepId: string }> {
     try {
       // Ensure workflows directory exists
@@ -425,6 +483,9 @@ This workflow step has no next steps defined. This may be a terminal step in the
   }
 
   destroy() {
+    if (this.initializationTimeout) {
+      clearTimeout(this.initializationTimeout);
+    }
     if (this.watcher) {
       this.watcher.close();
     }

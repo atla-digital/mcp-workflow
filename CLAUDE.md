@@ -135,3 +135,6 @@ When adding new tools:
 4. Export from `src/tools/handlers/index.ts`
 
 The workflow engine automatically handles prompt generation - no manual prompt registration needed for new entrypoints.
+
+### Memories
+- Build and deploy using docker compose

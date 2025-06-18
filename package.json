@@ -11,9 +11,14 @@
     "build"
   ],
   "scripts": {
-    "build": "tsc && node -e \"import('fs').then(fs => fs.chmodSync('build/index.js', '755'))\"",
+    "build:server": "tsc",
+    "build:web": "tsc --project tsconfig.web.json",
+    "build:static": "node scripts/build-static.js",
+    "build": "npm run build:server && npm run build:web && npm run build:static && node -e \"import('fs').then(fs => fs.chmodSync('build/index.js', '755'))\"",
     "prepare": "npm run build",
-    "watch": "tsc --watch",
+    "watch:server": "tsc --watch",
+    "watch:web": "tsc --project tsconfig.web.json --watch",
+    "watch": "npm run watch:server",
     "start": "node build/server/streamable-http-server.js",
     "start:mcp": "node build/index.js",
     "start:http": "node build/server/streamable-http-server.js",
@@ -21,10 +26,13 @@
     "inspector:http": "npx @modelcontextprotocol/inspector streamableHttp \"http://localhost:3000/mcp\""
   },
   "dependencies": {
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.37.2",
     "@modelcontextprotocol/sdk": "^1.12.0",
-    "marked": "^12.0.0",
+    "chokidar": "^3.6.0",
+    "codemirror": "^6.0.1",
     "gray-matter": "^4.0.3",
-    "chokidar": "^3.6.0"
+    "marked": "^12.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",

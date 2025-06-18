@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Visualization - MCP Workflow Server</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid #ddd;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 20px;
+            margin: 0;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background: #1976d2;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            color: #666;
+            font-size: 14px;
+            margin-left: 15px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            overflow: hidden;
+        }
+
+        .graph-section {
+            background: white;
+            border-right: 1px solid #ddd;
+            position: relative;
+            grid-column: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .diagnostics-section {
+            background: #f9f9f9;
+            grid-column: 2;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            overflow: hidden;
+        }
+
+        .diagnostics-header {
+            padding: 15px 20px 10px 20px;
+            border-bottom: 1px solid #ddd;
+            background: white;
+            grid-row: 1;
+        }
+
+        .diagnostics-header h2 {
+            margin: 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .diagnostics-main {
+            grid-row: 2;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .diagnostics-footer {
+            padding: 10px 20px;
+            border-top: 1px solid #ddd;
+            background: white;
+            grid-row: 3;
+            font-size: 12px;
+            color: #666;
+        }
+
+        #graph-container {
+            width: 100%;
+            height: 100%;
+            background: white;
+        }
+
+        #diagnostics-container {
+            height: 100%;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2196f3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .error-message {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #f44336;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            text-align: center;
+            z-index: 1001;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .connection-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+
+        .connection-dot.disconnected {
+            background: #f44336;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .footer {
+            background: white;
+            border-top: 1px solid #ddd;
+            padding: 10px 20px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: 60% 40%;
+            }
+            
+            .graph-section {
+                grid-column: 1;
+                grid-row: 1;
+                border-right: none;
+                border-bottom: 1px solid #ddd;
+            }
+            
+            .diagnostics-section {
+                grid-column: 1;
+                grid-row: 2;
+            }
+            
+            .header-controls {
+                display: grid;
+                grid-template-columns: auto auto auto 1fr;
+                gap: 5px;
+                align-items: center;
+            }
+            
+            .diagnostics-section {
+                grid-template-rows: auto 1fr;
+            }
+            
+            .diagnostics-footer {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div>
+                <h1>🔄 Workflow Visualization</h1>
+            </div>
+            <div class="header-controls">
+                <div class="connection-indicator">
+                    <div class="connection-dot" id="connection-status"></div>
+                    <span>Connected</span>
+                </div>
+                <button id="refresh-button" class="btn">🔄 Refresh</button>
+                <button id="fit-button" class="btn">🎯 Fit View</button>
+                <span id="status-message" class="status-message"></span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Graph Visualization -->
+            <section class="graph-section">
+                <div id="graph-container"></div>
+            </section>
+
+            <!-- Diagnostics Panel -->
+            <aside class="diagnostics-section">
+                <header class="diagnostics-header">
+                    <h2>🔍 Workflow Diagnostics</h2>
+                </header>
+                <main class="diagnostics-main">
+                    <div id="diagnostics-container"></div>
+                </main>
+                <footer class="diagnostics-footer">
+                    <div class="diagnostics-status">Ready</div>
+                </footer>
+            </aside>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            MCP Workflow Server - Real-time workflow visualization with diagnostic tools
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading workflow visualization...</div>
+    </div>
+
+    <!-- Error Message -->
+    <div id="error-message" class="error-message"></div>
+
+    <!-- Text Editor Container -->
+    <div id="text-editor-container"></div>
+
+    <!-- Load vis.js library -->
+    <script src="lib/vis-network.min.js"></script>
+    
+    <!-- Load application -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>

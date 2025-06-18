@@ -94,5 +94,20 @@ export const workflowTools: Tool[] = [
       properties: {},
       additionalProperties: false
     }
+  },
+  {
+    name: 'workflow_get_raw_content',
+    description: 'Get the raw content of a workflow file including frontmatter',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filename: {
+          type: 'string',
+          description: 'Workflow filename (with or without .md extension)'
+        }
+      },
+      required: ['filename'],
+      additionalProperties: false
+    }
   }
 ];

@@ -17,6 +17,5 @@ Execute the test suite for your project.
 
 ## Next Steps
 
-- If all tests pass → Continue to @commit-and-push@
 - If tests fail → Continue to @fix-test-errors@
 - If tests pass but coverage is low → Continue to @improve-coverage@
