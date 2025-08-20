@@ -96,6 +96,22 @@ Step references use @step-id@ syntax for navigation:
 - If condition B → Continue to @other-step@
 ```
 
+### Global Entrypoint Instructions
+
+The system supports a special `.entrypoint.md` file in the `workflows/` directory that defines global instructions included in ALL workflow entrypoints. This enables consistent behavior across all workflows.
+
+**File**: `workflows/.entrypoint.md`
+- Automatically included at the beginning of every entrypoint prompt
+- Perfect for global behaviors like context compaction instructions
+- Ignored by workflow analytics (orphan detection, etc.)
+- Changes are detected and prompts are automatically regenerated
+
+**Example Use Cases:**
+- Context compaction guidelines ("When compacting conversation, include current step and progress")
+- Universal navigation instructions
+- Common error handling procedures
+- Standard tool usage patterns
+
 ### MCP Tools Provided
 
 1. **workflow_list_entrypoints**: Lists available workflow starting points
@@ -139,6 +155,12 @@ The system uses `chokidar` to watch the workflows directory and automatically:
 - `WORKFLOWS_PATH`: Path to workflow markdown files (default: `/app/workflows`)
 - `PORT`: HTTP server port (default: `3000`)
 - `NODE_ENV`: Environment mode (affects logging and optimization)
+
+## Important Files
+
+- `workflows/*.md` - Individual workflow step files
+- `workflows/.entrypoint.md` - Global instructions included in all entrypoints
+- Files starting with `.` in workflows directory are ignored by analytics
 
 ## Development Notes
 
