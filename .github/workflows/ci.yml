@@ -65,6 +65,20 @@ jobs:
         timeout 5s npm run inspector -- --help || true
         echo "MCP inspector test completed"
 
+    - name: Validate TOOLS.md is up to date
+      run: |
+        # Generate fresh TOOLS.md
+        npm run generate-docs
+        
+        # Check if there are any differences
+        if git diff --exit-code TOOLS.md; then
+          echo "TOOLS.md is up to date"
+        else
+          echo "TOOLS.md is outdated. Please run 'npm run generate-docs' and commit the changes."
+          git diff TOOLS.md
+          exit 1
+        fi
+
   docker-build-test:
     runs-on: ubuntu-latest
     
