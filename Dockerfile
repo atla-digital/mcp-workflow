@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # Production stage  
-FROM node:20-alpine AS production-deps
+FROM node:24-alpine AS production-deps
 
 # Set working directory
 WORKDIR /app
@@ -29,7 +29,7 @@ COPY package*.json ./
 RUN npm ci --only=production --ignore-scripts
 
 # Final stage
-FROM gcr.io/distroless/nodejs20-debian12
+FROM gcr.io/distroless/nodejs24-debian12
 
 # Set working directory
 WORKDIR /app
