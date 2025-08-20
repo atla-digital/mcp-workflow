@@ -5,7 +5,7 @@ import { WorkflowEngine } from '../../services/workflow-engine.js';
 export const listEntrypoints: ToolHandler = async (params: CallToolRequest['params']) => {
   const { search } = (params.arguments as any) || {};
   
-  const workflowEngine = new WorkflowEngine();
+  const workflowEngine = WorkflowEngine.getInstance();
   const entrypoints = await workflowEngine.listEntrypoints(search as string);
   
   return {
@@ -25,7 +25,7 @@ export const getStep: ToolHandler = async (params: CallToolRequest['params']) =>
     throw new Error('step_id parameter is required');
   }
   
-  const workflowEngine = new WorkflowEngine();
+  const workflowEngine = WorkflowEngine.getInstance();
   const step = await workflowEngine.getStep(step_id as string);
   
   return {
@@ -45,7 +45,7 @@ export const createOrUpdateWorkflow: ToolHandler = async (params: CallToolReques
     throw new Error('filename, title, and content parameters are required');
   }
   
-  const workflowEngine = new WorkflowEngine();
+  const workflowEngine = WorkflowEngine.getInstance();
   const result = await workflowEngine.createOrUpdateWorkflow({
     filename: filename as string,
     title: title as string,
@@ -71,7 +71,7 @@ export const deleteWorkflow: ToolHandler = async (params: CallToolRequest['param
     throw new Error('filename parameter is required');
   }
   
-  const workflowEngine = new WorkflowEngine();
+  const workflowEngine = WorkflowEngine.getInstance();
   const result = await workflowEngine.deleteWorkflow(filename as string);
   
   return {
@@ -85,7 +85,7 @@ export const deleteWorkflow: ToolHandler = async (params: CallToolRequest['param
 };
 
 export const findOrphans: ToolHandler = async (params: CallToolRequest['params']) => {
-  const workflowEngine = new WorkflowEngine();
+  const workflowEngine = WorkflowEngine.getInstance();
   const orphans = await workflowEngine.findOrphanedWorkflows();
   
   return {
@@ -99,7 +99,7 @@ export const findOrphans: ToolHandler = async (params: CallToolRequest['params']
 };
 
 export const findInvalidLinks: ToolHandler = async (params: CallToolRequest['params']) => {
-  const workflowEngine = new WorkflowEngine();
+  const workflowEngine = WorkflowEngine.getInstance();
   const invalidLinks = await workflowEngine.findInvalidLinks();
   
   return {
@@ -119,7 +119,7 @@ export const getWorkflowRawContent: ToolHandler = async (params: CallToolRequest
     throw new Error('filename parameter is required');
   }
   
-  const workflowEngine = new WorkflowEngine();
+  const workflowEngine = WorkflowEngine.getInstance();
   const content = await workflowEngine.getRawFileContent(filename as string);
   
   return {

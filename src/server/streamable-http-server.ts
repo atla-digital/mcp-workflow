@@ -27,8 +27,8 @@ class WorkflowStreamableHttpServer {
   constructor(port: number = 3000) {
     this.port = port;
     
-    // Initialize workflow engine
-    this.workflowEngine = new WorkflowEngine();
+    // Initialize workflow engine (using singleton)
+    this.workflowEngine = WorkflowEngine.getInstance();
     
     // Initialize static file handler
     this.staticHandler = new StaticFileHandler();

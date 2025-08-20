@@ -45,6 +45,7 @@ interface InvalidLink {
 }
 
 export class WorkflowEngine {
+  private static instance: WorkflowEngine;
   private workflowsPath: string;
   private stepCache: Map<string, WorkflowStep> = new Map();
   private entrypointsCache: WorkflowEntrypoint[] = [];
@@ -52,8 +53,9 @@ export class WorkflowEngine {
   private notificationService: NotificationService;
   private isInitializing = true;
   private initializationTimeout?: NodeJS.Timeout;
+  private entrypointInstructions: string = '';
 
-  constructor(workflowsPath: string = process.env.WORKFLOWS_PATH || '/app/workflows') {
+  private constructor(workflowsPath: string = process.env.WORKFLOWS_PATH || '/app/workflows') {
     this.workflowsPath = workflowsPath;
     this.notificationService = NotificationService.getInstance();
     this.initializeWatcher();
@@ -65,9 +67,23 @@ export class WorkflowEngine {
     }, 2000); // 2 second delay to allow initial file scan
   }
 
+  /**
+   * Get the singleton instance of WorkflowEngine
+   */
+  public static getInstance(workflowsPath?: string): WorkflowEngine {
+    if (!WorkflowEngine.instance) {
+      WorkflowEngine.instance = new WorkflowEngine(workflowsPath);
+    }
+    return WorkflowEngine.instance;
+  }
+
   private initializeWatcher() {
-    this.watcher = chokidar.watch(`${this.workflowsPath}/**/*.md`, {
-      ignored: /(^|[\/\\])\../,
+    // Watch all markdown files including the .entrypoint.md file
+    this.watcher = chokidar.watch([
+      `${this.workflowsPath}/**/*.md`,
+      path.join(this.workflowsPath, '.entrypoint.md')
+    ], {
+      ignored: /(^|[\/\\])\../, // Ignore other dot files but not .entrypoint.md
       persistent: true
     });
 
@@ -77,12 +93,32 @@ export class WorkflowEngine {
   }
 
   /**
+   * Handle entrypoint file changes
+   */
+  private async handleEntrypointFileChange(): Promise<void> {
+    // Reload entrypoint instructions and regenerate prompts
+    await this.loadEntrypointInstructions();
+    this.updatePrompts();
+    
+    // Skip notifications during initial loading
+    if (!this.isInitializing) {
+      await this.notificationService.notifyFileWatcherEvent('changed', '.entrypoint.md');
+    }
+  }
+
+  /**
    * Handle file watcher events
    */
   private async handleFileChange(event: string, filePath: string): Promise<void> {
     const filename = path.basename(filePath);
     
-    // Refresh cache first
+    // Check if this is the .entrypoint.md file
+    if (filename === '.entrypoint.md') {
+      await this.handleEntrypointFileChange();
+      return;
+    }
+    
+    // Refresh cache first for regular workflow files
     await this.refreshCache();
     
     // Skip notifications during initial loading to prevent spam
@@ -111,7 +147,22 @@ export class WorkflowEngine {
   private async refreshCache() {
     this.stepCache.clear();
     this.entrypointsCache = [];
+    await this.loadEntrypointInstructions();
     await this.loadWorkflows();
+  }
+
+  /**
+   * Load global entrypoint instructions from .entrypoint.md
+   */
+  private async loadEntrypointInstructions(): Promise<void> {
+    try {
+      const entrypointPath = path.join(this.workflowsPath, '.entrypoint.md');
+      const content = await fs.readFile(entrypointPath, 'utf-8');
+      this.entrypointInstructions = content;
+    } catch (error) {
+      // If .entrypoint.md doesn't exist, use empty string
+      this.entrypointInstructions = '';
+    }
   }
 
   private async loadWorkflows() {
@@ -141,7 +192,8 @@ export class WorkflowEngine {
           
           if (entry.isDirectory()) {
             await scanDirectory(fullPath);
-          } else if (entry.isFile() && entry.name.endsWith('.md')) {
+          } else if (entry.isFile() && entry.name.endsWith('.md') && !entry.name.startsWith('.')) {
+            // Skip dot files (like .entrypoint.md) to avoid them being treated as workflows
             files.push(fullPath);
           }
         }
@@ -177,12 +229,22 @@ export class WorkflowEngine {
       this.stepCache.set(filename, step);
       
       if (isEntrypoint) {
-        this.entrypointsCache.push({
+        // Check if entrypoint already exists to prevent duplicates
+        const existingIndex = this.entrypointsCache.findIndex(entry => entry.id === filename);
+        const entrypoint = {
           id: filename,
           title: frontmatter.title || filename,
           description: frontmatter.description,
           filename
-        });
+        };
+        
+        if (existingIndex >= 0) {
+          // Update existing entrypoint
+          this.entrypointsCache[existingIndex] = entrypoint;
+        } else {
+          // Add new entrypoint
+          this.entrypointsCache.push(entrypoint);
+        }
       }
     } catch (error) {
       console.error(`Error parsing workflow file ${filePath}:`, error);
@@ -190,17 +252,36 @@ export class WorkflowEngine {
   }
 
   private extractStepReferences(content: string): string[] {
+    // Remove code blocks (including inline code with backticks) to avoid extracting references from examples
+    const contentWithoutCode = this.removeCodeBlocks(content);
+    
     const stepRefRegex = /@([a-zA-Z0-9_-]+)@/g;
     const references: string[] = [];
+    const ignoredKeywords = ['step-id']; // Keywords to ignore as they are documentation placeholders
     let match;
     
-    while ((match = stepRefRegex.exec(content)) !== null) {
-      if (!references.includes(match[1])) {
-        references.push(match[1]);
+    while ((match = stepRefRegex.exec(contentWithoutCode)) !== null) {
+      const reference = match[1];
+      if (!references.includes(reference) && !ignoredKeywords.includes(reference)) {
+        references.push(reference);
       }
     }
     
     return references;
+  }
+
+  /**
+   * Remove code blocks and inline code from content to avoid extracting step references from examples
+   */
+  private removeCodeBlocks(content: string): string {
+    // Remove fenced code blocks (```...```)
+    let result = content.replace(/```[\s\S]*?```/g, '');
+    
+    // Remove inline code (`...`) - handle multiple backticks on same line
+    // This regex handles cases like `code` and also `code1` → `code2`
+    result = result.replace(/`[^`\n]*`/g, '');
+    
+    return result;
   }
 
   private updatePrompts() {
@@ -232,7 +313,15 @@ export class WorkflowEngine {
   }
   
   private createPromptTemplate(step: WorkflowStep): string {
-    return `# ${step.title}
+    // Include entrypoint instructions at the beginning if they exist
+    const entrypointSection = this.entrypointInstructions ? `
+${this.entrypointInstructions}
+
+---
+
+` : '';
+
+    return `${entrypointSection}# ${step.title}
 
 {{additional_instructions}}
 
@@ -449,14 +538,27 @@ This workflow step has no next steps defined. This may be a terminal step in the
     for (const [stepId, step] of this.stepCache) {
       for (const reference of step.nextSteps) {
         if (!existingStepIds.has(reference)) {
-          // Find line number in content where the invalid reference appears
+          // Find line number in content where the invalid reference appears (excluding code blocks)
           const lines = step.content.split('\n');
           let lineNumber: number | undefined;
           
           for (let i = 0; i < lines.length; i++) {
-            if (lines[i].includes(`@${reference}@`)) {
-              lineNumber = i + 1;
-              break;
+            const line = lines[i];
+            if (line.includes(`@${reference}@`)) {
+              // Check if this reference is inside inline code (backticks)
+              const refIndex = line.indexOf(`@${reference}@`);
+              const beforeRef = line.substring(0, refIndex);
+              const afterRef = line.substring(refIndex + reference.length + 2);
+              
+              // Count backticks before and after the reference
+              const backticksBeforeRef = (beforeRef.match(/`/g) || []).length;
+              const backticksAfterRef = (afterRef.match(/`/g) || []).length;
+              
+              // If odd number of backticks before reference, it's likely inside inline code
+              if (backticksBeforeRef % 2 === 0) {
+                lineNumber = i + 1;
+                break;
+              }
             }
           }
 
