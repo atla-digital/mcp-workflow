@@ -31,7 +31,7 @@ export class McpClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json, text/event-stream',
+          'Accept': 'application/json',
         },
         body: JSON.stringify(request)
       });

@@ -19,9 +19,9 @@ npm run start:http
 npm run start:mcp
 ```
 
-### Docker Development
+### Docker Deployment (REQUIRED for HTTP Server)
 ```bash
-# Build and start HTTP server (main usage)
+# Build and start HTTP server (ONLY supported deployment method)
 docker compose up -d
 
 # Check container logs
@@ -29,7 +29,12 @@ docker compose logs
 
 # Stop and remove containers
 docker compose down
+
+# Rebuild after code changes
+docker compose up -d --build
 ```
+
+**⚠️ CRITICAL**: The HTTP server (`start:http`) must ONLY be deployed through Docker. Local `npm run start:http` is for development testing only and will not work correctly due to hardcoded container paths (`/app/workflows`). The WorkflowEngine expects workflows to be mounted at `/app/workflows` which only happens in the Docker container.
 
 ### Testing with MCP Inspector
 ```bash
@@ -52,6 +57,8 @@ npm run generate-docs
 ## Architecture Overview
 
 This is a **Model Context Protocol (MCP) server** that provides workflow navigation through markdown-based workflow definitions. The system has two main operational modes and supports both tools and prompts.
+
+**Deployment Note**: The HTTP server is designed to run in a Docker container with workflows mounted at `/app/workflows`. Local development testing can use `npm run start:http`, but production deployment should always use Docker to ensure correct file paths and environment setup.
 
 ### Core Components
 

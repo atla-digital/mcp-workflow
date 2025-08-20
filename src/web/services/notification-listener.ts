@@ -9,7 +9,7 @@ export class NotificationListener {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
 
-  constructor(private mcpEndpoint: string = '/mcp') {
+  constructor(private mcpEndpoint: string = '/notifications') {
     this.connect();
   }
 
